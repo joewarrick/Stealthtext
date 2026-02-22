@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StealthText Pro</title>
+<style>
+body{font-family:system-ui;max-width:600px;margin:20px auto;padding:10px}
+textarea,input{width:100%;margin:6px 0;padding:10px;font-size:16px;box-sizing:border-box}
+textarea{min-height:80px;resize:none;overflow:hidden}
+button{padding:12px;font-size:16px;margin:6px 0;width:100%}
+.output{white-space:pre-wrap;word-break:break-word;background:#f3f3f3;padding:10px;border-radius:6px;margin-top:10px}
+.success{color:green;font-weight:bold;margin-top:5px}
+</style>
+</head>
+<body>
+
+<h2>🔐 StealthText Pro</h2>
+
+<label>Cover Message (what people see OR paste encrypted text here)</label>
+<textarea id="cover" oninput="autoResize(this)"></textarea>
+
+<label>Secret Message</label>
+<textarea id="secret" oninput="autoResize(this)"></textarea>
+
+<label>Password (visible)</label>
+<input type="text" id="password">
+
+<button onclick="encrypt()">Encrypt & Hide (Emoji Mode)</button>
+<button onclick="decrypt()">Auto Decrypt</button>
+<button onclick="copyOutput()">📋 Copy Encrypted Message</button>
+
+<div class="output" id="output"></div>
+<div id="copied" class="success"></div>
+
+<script>
+const encoder=new TextEncoder();
+const decoder=new TextDecoder();
+
+function autoResize(el){
+el.style.height="auto";
+el.style.height=(el.scrollHeight)+"px";
+}
+
+function toBinary(str){
+return Array.from(str).map(c=>c.charCodeAt(0).toString(2).padStart(8,'0')).join('');
+}
+function fromBinary(bin){
+return bin.match(/.{1,8}/g).map(b=>String.fromCharCode(parseInt(b,2))).join('');
+}
+function emojiEncode(bin){
+return bin.split('').map(b=>b==='0'?'🙂':'😂').join('');
+}
+function emojiDecode(str){
+return Array.from(str).filter(c=>c==='🙂'||c==='😂').map(c=>c==='🙂'?'0':'1').join('');
+}
+
+async function key(password){
+const km=await crypto.subtle.importKey("raw",encoder.encode(password),{name:"PBKDF2"},false,["deriveKey"]);
+return crypto.subtle.deriveKey(
+{name:"PBKDF2",salt:encoder.encode("salt"),iterations:100000,hash:"SHA-256"},
+km,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
+}
+
+async function encrypt(){
+const cover=document.getElementById("cover").value;
+const secret=document.getElementById("secret").value;
+const password=document.getElementById("password").value;
+const k=await key(password);
+const iv=crypto.getRandomValues(new Uint8Array(12));
+const enc=await crypto.subtle.encrypt({name:"AES-GCM",iv:iv},k,encoder.encode(secret));
+const combined=btoa(String.fromCharCode(...iv)+String.fromCharCode(...new Uint8Array(enc)));
+const binary=toBinary(combined);
+const result=cover+emojiEncode(binary);
+document.getElementById("output").innerText=result;
+document.getElementById("copied").innerText="";
+}
+
+async function decrypt(){
+const text=document.getElementById("cover").value;
+const password=document.getElementById("password").value;
+const binary=emojiDecode(text);
+const combined=fromBinary(binary);
+try{
+const data=atob(combined);
+const iv=Uint8Array.from(data.slice(0,12),c=>c.charCodeAt(0));
+const cipher=Uint8Array.from(data.slice(12),c=>c.charCodeAt(0));
+const k=await key(password);
+const dec=await crypto.subtle.decrypt({name:"AES-GCM",iv:iv},k,cipher);
+document.getElementById("output").innerText=decoder.decode(dec);
+}catch{
+document.getElementById("output").innerText="Wrong password or damaged message.";
+}
+}
+
+function copyOutput(){
+const text=document.getElementById("output").innerText;
+if(!text){return;}
+
+// Try modern clipboard API first
+if(navigator.clipboard && window.isSecureContext){
+navigator.clipboard.writeText(text).then(()=>{
+document.getElementById("copied").innerText="Copied successfully ✔";
+}).catch(()=>fallbackCopy(text));
+}else{
+fallbackCopy(text);
+}
+}
+
+function fallbackCopy(text){
+const temp=document.createElement("textarea");
+temp.value=text;
+document.body.appendChild(temp);
+temp.select();
+temp.setSelectionRange(0,999999);
+try{
+document.execCommand("copy");
+document.getElementById("copied").innerText="Copied successfully ✔";
+}catch{
+document.getElementById("copied").innerText="Copy failed. Please select manually.";
+}
+document.body.removeChild(temp);
+}
+
+</script>
+
+</body>
+</html>
