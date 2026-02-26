@@ -85,8 +85,8 @@ const text=document.getElementById("cover").value;
 const password=document.getElementById("password").value;
 let combined;
 
-if(text.startsWith("SECURE:")){
-    combined=text.replace("SECURE:","");
+if(text.toLowerCase().startsWith("secure:")){
+    combined = text.substring(7);
 }else{
     const binary=emojiDecode(text);
     combined=fromBinary(binary);
