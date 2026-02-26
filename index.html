@@ -125,7 +125,26 @@ document.getElementById("copied").innerText="Copy failed. Please select manually
 }
 document.body.removeChild(temp);
 }
+async function encryptRaw(){
+const secret=document.getElementById("secret").value;
+const password=document.getElementById("password").value;
 
+const k=await key(password);
+const iv=crypto.getRandomValues(new Uint8Array(12));
+const enc=await crypto.subtle.encrypt(
+    {name:"AES-GCM",iv:iv},
+    k,
+    encoder.encode(secret)
+);
+
+const combined=btoa(
+    String.fromCharCode(...iv) +
+    String.fromCharCode(...new Uint8Array(enc))
+);
+
+document.getElementById("output").innerText="SECURE:"+combined;
+document.getElementById("copied").innerText="";
+}
 </script>
 
 </body>
