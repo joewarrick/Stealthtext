@@ -83,8 +83,14 @@ document.getElementById("copied").innerText="";
 async function decrypt(){
 const text=document.getElementById("cover").value;
 const password=document.getElementById("password").value;
-const binary=emojiDecode(text);
-const combined=fromBinary(binary);
+let combined;
+
+if(text.startsWith("SECURE:")){
+    combined=text.replace("SECURE:","");
+}else{
+    const binary=emojiDecode(text);
+    combined=fromBinary(binary);
+}
 try{
 const data=atob(combined);
 const iv=Uint8Array.from(data.slice(0,12),c=>c.charCodeAt(0));
